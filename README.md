@@ -1,4 +1,4 @@
-# Pipeline de Qualidade de Dados para E-Commerce
+Sales-Analytics-Data-App
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Pandas](https://img.shields.io/badge/Pandas-Processamento%20de%20Dados-blue)
