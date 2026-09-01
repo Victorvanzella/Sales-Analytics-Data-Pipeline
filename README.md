@@ -1,4 +1,4 @@
-Sales-Analytics-Data-App
+Sales-Analytics-Data-Pipeline
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Pandas](https://img.shields.io/badge/Pandas-Processamento%20de%20Dados-blue)
