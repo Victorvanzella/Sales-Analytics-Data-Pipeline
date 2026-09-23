@@ -1,0 +1,1 @@
+"""Sales Analytics Data Pipeline."""

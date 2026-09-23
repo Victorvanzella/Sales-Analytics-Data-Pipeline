@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Lint Python
+        run: ruff check .
+
+      - name: Check Python formatting
+        run: ruff format --check .
+
+      - name: Run Python tests
+        run: pytest --cov=src --cov-report=term-missing --cov-fail-under=85
+
+      - name: Run end-to-end pipeline
+        run: >-
+          python -m src.pipeline
+          --customers 1000
+          --products 50
+          --orders 5000
+          --seed 42
+          --full-refresh
+
+      - name: Verify warehouse and exports
+        run: python -m src.verify_outputs
+
+      - name: Generate dbt documentation
+        run: dbt docs generate --profiles-dir .
+
+      - name: Upload execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sales-analytics-evidence
+          path: |
+            reports/
+            logs/
+            target/manifest.json
+            target/catalog.json
+            target/run_results.json
+          retention-days: 7

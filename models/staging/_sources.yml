@@ -1,0 +1,67 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Tabelas carregadas diretamente dos arquivos Parquet de origem.
+    schema: raw
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    loaded_at_field: _ingested_at
+    tables:
+      - name: customers
+        description: Cadastro atual de clientes.
+        columns:
+          - name: customer_id
+            data_tests: [not_null, unique]
+          - name: segment
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [Consumer, Corporate, Small Business]
+
+      - name: products
+        description: Catálogo de produtos e custos.
+        columns:
+          - name: product_id
+            data_tests: [not_null, unique]
+          - name: list_price
+            data_tests: [not_null]
+
+      - name: orders
+        description: Cabeçalho dos pedidos de venda.
+        columns:
+          - name: order_id
+            data_tests: [not_null, unique]
+          - name: customer_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'customers')
+                    field: customer_id
+          - name: order_status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [Delivered, Shipped, Processing, Cancelled, Returned]
+
+      - name: order_items
+        description: Itens e valores transacionais de cada pedido.
+        columns:
+          - name: order_item_id
+            data_tests: [not_null, unique]
+          - name: order_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'orders')
+                    field: order_id
+          - name: product_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'products')
+                    field: product_id

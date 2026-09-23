@@ -1,0 +1,22 @@
+[project]
+name = "sales-analytics-data-pipeline"
+version = "2.0.0"
+description = "Analytics Engineering pipeline with Python, DuckDB, dbt and dimensional modeling."
+requires-python = ">=3.11,<3.14"
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers --disable-warnings"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/pipeline.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "target", "dbt_packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

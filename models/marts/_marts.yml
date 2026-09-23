@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Dimensão atual de clientes com chave substituta estável.
+    columns:
+      - name: customer_sk
+        data_tests: [not_null, unique]
+      - name: customer_id
+        data_tests: [not_null, unique]
+
+  - name: dim_product
+    description: Dimensão de produtos, categorias, preços e custos.
+    columns:
+      - name: product_sk
+        data_tests: [not_null, unique]
+      - name: product_id
+        data_tests: [not_null, unique]
+
+  - name: dim_date
+    description: Dimensão calendário cobrindo todo o intervalo de pedidos.
+    columns:
+      - name: date_key
+        data_tests: [not_null, unique]
+      - name: date_day
+        data_tests: [not_null, unique]
+
+  - name: fct_sales
+    description: Fato de vendas no grão de um item de pedido; materialização incremental.
+    columns:
+      - name: sales_sk
+        data_tests: [not_null, unique]
+      - name: order_item_id
+        data_tests: [not_null, unique]
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+      - name: product_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_sk
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Delivered, Shipped, Processing, Cancelled, Returned]
+
+  - name: mart_daily_sales
+    description: KPIs diários de pedidos, clientes, receita e devoluções.
+    columns:
+      - name: order_date
+        data_tests: [not_null, unique]
+
+  - name: mart_monthly_sales
+    description: Tendência mensal de receita, margem e clientes ativos.
+    columns:
+      - name: month_start
+        data_tests: [not_null, unique]
+
+  - name: mart_category_performance
+    description: Receita e margem por categoria e subcategoria.
+
+  - name: mart_customer_360
+    description: Métricas de valor, frequência e recência por cliente.
+    columns:
+      - name: customer_sk
+        data_tests: [not_null, unique]
+      - name: customer_tier
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Bronze, Silver, Gold, Platinum]
+
+  - name: mart_channel_performance
+    description: Desempenho por canal de vendas e método de pagamento.
+
+  - name: mart_country_performance
+    description: Participação de receita por país comparada às metas do negócio.
+    columns:
+      - name: country
+        data_tests: [not_null, unique]

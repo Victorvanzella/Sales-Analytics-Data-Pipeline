@@ -1,461 +1,319 @@
-Sales-Analytics-Data-Pipeline
+# Sales Analytics Data Pipeline
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![Pandas](https://img.shields.io/badge/Pandas-Processamento%20de%20Dados-blue)
-![Testes](https://img.shields.io/badge/Testes-Pytest-blue)
-![CI](https://img.shields.io/badge/CI-GitHub%20Actions-blue)
+[![CI](https://github.com/Victorvanzella/Sales-Analytics-Data-Pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Victorvanzella/Sales-Analytics-Data-Pipeline/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.11-FF694B?logo=dbt&logoColor=white)
+![DuckDB](https://img.shields.io/badge/DuckDB-1.5-FFF000?logo=duckdb&logoColor=black)
+![Tests](https://img.shields.io/badge/tests-101%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/Python%20coverage-92%25-brightgreen)
 
-Pipeline de qualidade de dados para vendas de e-commerce desenvolvido com **Python e Pandas**.
+Projeto completo de Analytics Engineering que transforma fontes transacionais de vendas em um warehouse dimensional pronto para BI. Python gera e ingere dados em Parquet, DuckDB armazena as camadas analíticas e dbt executa transformações SQL, carga incremental, testes, documentação e lineage.
 
-O projeto transforma dados transacionais brutos e inconsistentes em uma camada processada, validada e pronta para análise, demonstrando fundamentos importantes para uma posição de **Engenharia de Dados Júnior**: ingestão, transformação, qualidade de dados, observabilidade, testes automatizados, modularização e integração contínua.
+> O projeto roda localmente sem credenciais ou infraestrutura externa. Os dados são sintéticos, determinísticos e não contêm informações pessoais reais.
 
-> O problema de negócio e as regras-base de limpeza foram inspirados no Mini-Projeto 4 do curso **Fundamentos de Linguagem Python - Do Básico a Aplicações de IA**, da Data Science Academy. A arquitetura do pipeline, modularização, validações, métricas, logs, testes e CI foram desenvolvidos como evolução de portfólio.
+## Resultado comprovado
 
----
+A execução padrão foi validada de ponta a ponta com os seguintes resultados:
 
-## Problema de Negócio
+| Métrica | Resultado |
+|---|---:|
+| Clientes | 5.000 |
+| Produtos | 100 |
+| Pedidos | 50.000 |
+| Itens na tabela fato | 92.398 |
+| Unidades processadas | 167.866 |
+| Dias na dimensão calendário | 731 |
+| Receita reconhecida | R$ 30.925.200,35 |
+| Margem reconhecida | R$ 12.088.814,24 |
+| Objetos dbt no warehouse | 17 |
+| Testes dbt aprovados | 73/73 |
+| Testes Python aprovados | 28/28 |
+| Cobertura dos testes Python | 92,57% |
+| Verificações finais | 9/9 |
 
-Uma empresa de e-commerce coleta dados de pedidos, clientes, produtos e entregas, mas sua camada bruta apresenta problemas que tornam os relatórios pouco confiáveis.
+Esses números são produzidos pelo próprio pipeline e registrados em `reports/pipeline_metrics.json`.
 
-O conjunto de dados simula:
+## Problema de negócio
 
-- valores ausentes;
-- registros duplicados;
-- preços armazenados como texto;
-- valor inválido em preço;
-- identificadores de cliente com tipo incorreto;
-- outlier de quantidade;
-- ausência de status de entrega.
+Arquivos operacionais de clientes, produtos, pedidos e itens não têm o formato adequado para dashboards. Consultas diretas sobre essas fontes misturam regras de negócio, repetem cálculos e dificultam a reconciliação financeira.
 
-O objetivo do pipeline é criar uma camada de dados **confiável, reproduzível e validada** para consumo analítico.
+O pipeline resolve esse cenário ao:
 
----
+1. gerar fontes relacionais coerentes e reproduzíveis;
+2. carregá-las na camada `raw` com auditoria e checksum;
+3. padronizar tipos e nomes na camada `staging`;
+4. enriquecer e reconciliar os dados na camada `intermediate`;
+5. publicar um Star Schema e marts orientados a decisões;
+6. bloquear a entrega quando testes ou reconciliações falham.
 
 ## Arquitetura
 
 ```mermaid
-flowchart LR
-    A[Fonte Sintética] --> B[Camada Bruta - CSV]
-    B --> C[Extração]
-    C --> D[Transformação e Limpeza]
-    D --> E[Validação de Qualidade]
-    E -->|Aprovado| F[Camada Processada]
-    E -->|Reprovado| G[Falha do Pipeline]
-    F --> H[Datasets Analíticos]
-    F --> I[Métricas de Qualidade]
-    F --> J[Gráficos]
-    D --> K[Logs do Pipeline]
+flowchart TD
+    A["Python: fonte sintética"] --> B["Landing: 4 arquivos Parquet"]
+    B --> C["DuckDB: raw + auditoria"]
+    C --> D["dbt: staging"]
+    D --> E["dbt: intermediate"]
+    E --> F["Star Schema: dimensões + fato incremental"]
+    F --> G["6 marts analíticos"]
+    G --> H["CSV e Parquet para BI"]
+    F --> I["73 testes dbt"]
+    C --> J["Snapshot SCD Tipo 2"]
 ```
 
-### Fluxo dos Dados
+## Diferenciais implementados
 
-```text
-Fonte Sintética
-       |
-       v
-data/raw/sales_raw.csv
-       |
-       v
-    Extração
-       |
-       v
-Normalização de tipos
-Tratamento de valores ausentes
-Remoção de duplicatas
-Tratamento de outliers
-Engenharia de atributos
-       |
-       v
-Validação de qualidade
-       |
-       v
-data/processed/sales_clean.csv
-       |
-       +------> Datasets analíticos
-       +------> Relatório de qualidade
-       +------> Métricas do pipeline
-       +------> Gráficos
-       +------> Logs
+- quatro fontes normalizadas: clientes, produtos, pedidos e itens;
+- arquivos Parquet com checksum SHA-256 e manifesto de execução;
+- warehouse DuckDB com schemas `raw`, `audit`, `staging`, `intermediate`, `marts`, `reference` e `snapshots`;
+- transformações SQL modulares com dbt;
+- Star Schema com três dimensões e uma tabela fato;
+- `fct_sales` incremental com chave única e watermark de atualização;
+- snapshot de clientes para histórico SCD Tipo 2;
+- seed versionada com metas de participação por país;
+- seis marts para consumo de BI;
+- testes de unicidade, nulidade, domínio, relacionamento e reconciliação;
+- source freshness para detectar fontes desatualizadas;
+- auditoria por `run_id`, logs e métricas operacionais;
+- exportação simultânea em CSV e Parquet/ZSTD;
+- Docker, Makefile e GitHub Actions;
+- documentação gerada automaticamente pelo dbt.
+
+## Modelo dimensional
+
+```mermaid
+erDiagram
+    DIM_CUSTOMER ||--o{ FCT_SALES : customer_sk
+    DIM_PRODUCT ||--o{ FCT_SALES : product_sk
+    DIM_DATE ||--o{ FCT_SALES : date_key
+    DIM_CUSTOMER {
+        string customer_sk PK
+        string customer_id
+        string segment
+        string country
+    }
+    DIM_PRODUCT {
+        string product_sk PK
+        string product_id
+        string category
+        decimal unit_cost
+    }
+    DIM_DATE {
+        int date_key PK
+        date date_day
+        int month_number
+        int year_number
+    }
+    FCT_SALES {
+        string sales_sk PK
+        string customer_sk FK
+        string product_sk FK
+        int date_key FK
+        string order_id
+        int quantity
+        decimal recognized_revenue
+        decimal margin_amount
+    }
 ```
 
----
+O grão de `fct_sales` é **um item de pedido**. Isso permite analisar receita, margem, produto, cliente, data, canal, pagamento, país e status sem dupla contagem.
 
-## Regras de Qualidade de Dados
+## Camadas dbt
 
-| Regra | Problema na camada bruta | Ação do pipeline |
+| Camada | Materialização | Responsabilidade |
 |---|---|---|
-| `Quantidade` ausente | Valores numéricos ausentes | Preenchimento pela mediana |
-| `Status_Entrega` ausente | Categoria ausente | Preenchimento pela moda |
-| `Preco_Unitario` inválido | Texto como `valor_invalido` | Conversão para nulo e remoção da linha crítica |
-| `Cliente_ID` ausente/inválido | Cliente não identificável | Remoção da linha crítica |
-| Registros duplicados | Pode inflar a receita | Remoção de duplicatas |
-| Outlier de quantidade | Distorce as análises | Remoção acima de média + 3 desvios padrão |
-| Status de entrega inválido | Valor fora do domínio esperado | Falha na validação |
-| Preço ou quantidade menor ou igual a zero | Valor de negócio inválido | Falha na validação |
+| `raw` | tabelas DuckDB | cópia auditável das fontes Parquet |
+| `staging` | views | tipos, nomes e domínios padronizados |
+| `intermediate` | views | joins e cálculos financeiros reutilizáveis |
+| `marts` | tabelas | dimensões, fato incremental e indicadores |
+| `snapshots` | snapshot dbt | histórico de alterações de clientes |
+| `reference` | seed dbt | metas versionadas do negócio |
 
-A camada processada só é publicada após todas as regras de validação serem aprovadas.
+## Marts publicados
 
----
+| Modelo | Consumidor e finalidade |
+|---|---|
+| `mart_daily_sales` | evolução diária de pedidos, receita e devoluções |
+| `mart_monthly_sales` | tendência mensal, margem e clientes ativos |
+| `mart_category_performance` | desempenho de categorias e subcategorias |
+| `mart_customer_360` | valor, frequência, recência e tier do cliente |
+| `mart_channel_performance` | comparação de canais e pagamentos |
+| `mart_country_performance` | participação de receita versus meta por país |
 
-## Estrutura do Projeto
+## Como executar
 
-```text
-E-Commerce-Data-Quality-Pipeline/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── data/
-│   ├── raw/
-│   │   └── sales_raw.csv
-│   └── processed/
-│       └── sales_clean.csv
-├── docs/
-│   ├── data_dictionary.md
-│   └── technical_decisions.md
-├── logs/
-│   └── pipeline.log
-├── reports/
-│   ├── charts/
-│   ├── daily_sales.csv
-│   ├── data_quality_report.json
-│   ├── delivery_status.csv
-│   ├── pipeline_metrics.json
-│   ├── product_summary.csv
-│   └── revenue_by_category.csv
-├── src/
-│   ├── __init__.py
-│   ├── analytics.py
-│   ├── config.py
-│   ├── data_quality.py
-│   ├── extract.py
-│   ├── generate_data.py
-│   ├── pipeline.py
-│   ├── transform.py
-│   └── visualize.py
-├── tests/
-│   ├── test_data_quality.py
-│   ├── test_generate_data.py
-│   └── test_transform.py
-├── .gitignore
-├── LICENSE
-├── Makefile
-├── pyproject.toml
-├── README.md
-└── requirements.txt
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/Victorvanzella/Sales-Analytics-Data-Pipeline.git
+cd Sales-Analytics-Data-Pipeline
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+python -m src.pipeline --full-refresh
+python -m src.verify_outputs
 ```
 
----
-
-## Etapas do Pipeline
-
-### 1. Geração da Fonte
-
-Arquivo: `src/generate_data.py`
-
-Cria o conjunto de dados sintético utilizando uma semente aleatória fixa, garantindo reprodutibilidade.
-
-O dataset contém propositalmente erros e inconsistências para simular um cenário real de qualidade de dados.
-
-### 2. Extração
-
-Arquivo: `src/extract.py`
-
-Carrega o CSV bruto e verifica se todas as colunas obrigatórias estão presentes antes do processamento.
-
-### 3. Transformação
-
-Arquivo: `src/transform.py`
-
-Executa:
-
-- normalização de tipos;
-- tratamento de valores ausentes;
-- remoção de linhas com campos críticos inválidos;
-- remoção de duplicatas;
-- tratamento de outliers;
-- engenharia de atributos;
-- conversão final dos tipos;
-- ordenação determinística dos registros.
-
-É criada a coluna:
-
-```text
-Total_Venda = Quantidade × Preco_Unitario
-```
-
-### 4. Validação
-
-Arquivo: `src/data_quality.py`
-
-A camada processada precisa atender a um conjunto mínimo de regras de qualidade.
-
-As validações incluem:
-
-- pedidos únicos;
-- ausência de valores nulos;
-- status de entrega válidos;
-- quantidades positivas;
-- preços positivos;
-- tipos de dados corretos;
-- valor total de venda não negativo.
-
-### 5. Publicação
-
-Quando as validações são aprovadas, o pipeline gera:
-
-- dataset limpo;
-- datasets analíticos;
-- relatório de qualidade;
-- métricas de execução;
-- gráficos;
-- logs.
-
-Caso alguma validação falhe, o pipeline interrompe a execução para impedir a publicação de dados inválidos.
-
----
-
-## Como Executar
-
-### 1. Clonar o repositório
+### Linux ou macOS
 
 ```bash
-git clone https://github.com/Victorvanzella/E-Commerce-Data-Quality-Pipeline-Python-Pandas.git
-cd E-Commerce-Data-Quality-Pipeline-Python-Pandas
-```
-
-### 2. Criar ambiente virtual
-
-```bash
-python -m venv .venv
-```
-
-Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-Linux/macOS:
-
-```bash
+git clone https://github.com/Victorvanzella/Sales-Analytics-Data-Pipeline.git
+cd Sales-Analytics-Data-Pipeline
+python3.12 -m venv .venv
 source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m src.pipeline --full-refresh
+python -m src.verify_outputs
 ```
 
-### 3. Instalar dependências
+Ao finalizar, o terminal apresenta:
 
-```bash
-pip install -r requirements.txt
+```text
+Pipeline concluida: 50000 pedidos, 92398 itens e 73 testes dbt aprovados.
+Verificacao concluida: 9 checks aprovados.
 ```
 
-### 4. Executar o pipeline
+## Execução com Docker
 
 ```bash
+docker compose run --rm pipeline
+```
+
+Os diretórios `data`, `reports` e `logs` são montados como volumes para que as saídas permaneçam no computador.
+
+## Comandos úteis
+
+```bash
+# Executa carga incremental depois da primeira execução
 python -m src.pipeline
+
+# Reconstrói modelos incrementais desde o início
+python -m src.pipeline --full-refresh
+
+# Altera o volume e a seed
+python -m src.pipeline --customers 1000 --products 50 --orders 10000 --seed 123
+
+# Executa apenas os testes dbt
+dbt build --profiles-dir .
+
+# Gera e abre a documentação/lineage local do dbt
+dbt docs generate --profiles-dir .
+dbt docs serve --profiles-dir .
+
+# Executa testes Python e cobertura
+pytest --cov=src --cov-report=term-missing
+
+# Remove apenas artefatos reproduzíveis
+python -m src.clean_outputs
 ```
 
-Ou:
+Também estão disponíveis `make pipeline`, `make verify`, `make test`, `make lint` e `make docs`.
 
-```bash
-make run
-```
+## Testes de dados
 
-### 5. Executar os testes
+Os 73 testes dbt incluem:
 
-```bash
-pytest -q
-```
+- chaves únicas e obrigatórias;
+- integridade entre pedidos, clientes, produtos e itens;
+- relacionamentos da tabela fato com todas as dimensões;
+- valores aceitos para status, segmento e tier;
+- reconciliação do valor de cada item;
+- igualdade entre o grão da fonte e o grão da tabela fato;
+- ausência de métricas financeiras negativas;
+- reconciliação de receita entre fato e mart diário;
+- garantia de que todo pedido possui ao menos um item.
 
-Ou:
+Os 28 testes Python cobrem geração, determinismo, integridade referencial, manifesto, ingestão, auditoria, execução dbt, exportações, métricas, limpeza segura e verificação final.
 
-```bash
-make test
-```
+## Saídas
 
----
+| Caminho | Conteúdo |
+|---|---|
+| `data/source/*.parquet` | fontes sintéticas normalizadas |
+| `data/source/manifest.json` | contagens, seed e checksums |
+| `data/warehouse/sales_analytics.duckdb` | warehouse completo |
+| `data/exports/*.csv` | marts para ferramentas tradicionais |
+| `data/exports/*.parquet` | marts colunares comprimidos |
+| `reports/pipeline_metrics.json` | métricas técnicas e de negócio |
+| `reports/verification_report.json` | nove checks finais |
+| `logs/pipeline.log` | eventos e falhas por `run_id` |
+| `target/manifest.json` | lineage e metadados dbt |
+| `target/run_results.json` | resultado detalhado dos testes dbt |
 
-## Testes Automatizados
+Esses artefatos são reproduzíveis e, por isso, não são versionados no Git.
 
-O projeto inclui testes automatizados para:
-
-- garantir reprodutibilidade da geração dos dados;
-- validar remoção de duplicatas;
-- validar criação da coluna `Total_Venda`;
-- testar tratamento de valores críticos inválidos;
-- validar regras de qualidade da camada processada;
-- verificar detecção de pedidos duplicados.
-
-O GitHub Actions executa os testes e o pipeline automaticamente em pushes e pull requests.
-
----
-
-## Observabilidade
-
-O pipeline não apenas transforma dados: ele também registra o que ocorreu durante a execução.
-
-### Logs
+## Estrutura do repositório
 
 ```text
-logs/pipeline.log
+.
+├── .github/workflows/ci.yml
+├── analyses/
+├── data/
+│   ├── source/
+│   ├── warehouse/
+│   └── exports/
+├── dbt_tests/
+├── docs/
+├── macros/
+├── models/
+│   ├── staging/
+│   ├── intermediate/
+│   └── marts/
+├── seeds/
+├── snapshots/
+├── src/
+├── tests/
+├── dbt_project.yml
+├── profiles.yml
+├── Dockerfile
+└── compose.yml
 ```
 
-Registra o início, etapas, falhas e conclusão do pipeline.
+## GitHub Actions
 
-### Relatório de Qualidade
+A CI executa a cada push e pull request:
 
-```text
-reports/data_quality_report.json
-```
+1. instalação reproduzível das dependências;
+2. lint e formatação Python;
+3. 28 testes Python com cobertura mínima de 85%;
+4. pipeline completo com 5.000 pedidos;
+5. 73 testes dbt e nove verificações finais;
+6. geração da documentação dbt;
+7. publicação temporária dos relatórios, logs e metadados como artefato.
 
-Contém:
+## Decisões técnicas
 
-- perfil da camada bruta;
-- perfil da camada processada;
-- tipos de dados;
-- quantidade de valores nulos;
-- quantidade de duplicatas;
-- resultado das validações;
-- métricas das transformações.
+### Por que DuckDB?
 
-### Métricas do Pipeline
+DuckDB é um banco OLAP embutido, rápido para processamento analítico e compatível com Parquet. Ele permite demonstrar SQL, dbt, Star Schema e testes de dados sem exigir que o avaliador configure servidor, usuário ou senha. O mesmo projeto pode ser adaptado para PostgreSQL, BigQuery, Snowflake ou Databricks trocando o adapter e revisando o SQL específico.
 
-```text
-reports/pipeline_metrics.json
-```
+### Por que Parquet?
 
-Contém:
+Parquet preserva tipos, reduz o tamanho dos arquivos e representa melhor uma camada de landing analítica que CSV. Os marts também são exportados em CSV para compatibilidade com Excel e Power BI.
 
-- quantidade de linhas de entrada;
-- quantidade de linhas de saída;
-- registros removidos;
-- valores imputados;
-- duplicatas removidas;
-- outliers removidos;
-- faturamento total;
-- número de pedidos;
-- número de clientes;
-- produto e categoria de maior destaque.
+### Receita reconhecida
 
----
+Somente pedidos com status `Delivered` entram em `recognized_revenue`. Pedidos enviados ou em processamento continuam disponíveis na fato, mas não antecipam receita. Devoluções são registradas separadamente em `returned_amount`.
 
-## Resultados do Pipeline
+### Incrementalidade
 
-A execução validada desta versão apresentou:
+`fct_sales` utiliza `order_item_id` como chave única e `source_updated_at` como watermark. A opção `--full-refresh` recria o modelo; sem ela, o dbt processa somente registros com atualização posterior à maior data já carregada.
 
-| Métrica | Resultado |
-|---|---:|
-| Registros brutos | 103 |
-| Registros processados | 97 |
-| Registros removidos | 6 |
-| Valores ausentes de `Quantidade` preenchidos | 6 |
-| Valores ausentes de `Status_Entrega` preenchidos | 3 |
-| Linhas críticas inválidas removidas | 2 |
-| Registros duplicados removidos | 3 |
-| Outliers de quantidade removidos | 1 |
-| Pedidos únicos finais | 97 |
-| Clientes únicos | 45 |
-| Faturamento total | R$ 928.869,00 |
-| Produto líder em unidades | Smartphone |
-| Produto líder em receita | Smartphone |
-| Categoria líder em receita | Eletrônicos |
-| Testes automatizados | 5 aprovados |
+## Documentação técnica
 
-Esses resultados comprovam que as regras de transformação e qualidade foram realmente executadas pelo pipeline.
+- [Arquitetura e decisões](docs/architecture.md)
+- [Modelo dimensional](docs/data_model.md)
+- [Catálogo de métricas](docs/metrics_catalog.md)
+- [Runbook operacional](docs/runbook.md)
 
----
+## Limitações e evolução
 
-## Saídas Analíticas
+O pipeline representa um ambiente analítico local em lote. Em produção, as evoluções naturais seriam armazenamento em objeto, orquestração agendada, ingestão CDC, adapter para cloud warehouse, controle de acesso, alertas e publicação dos marts em uma ferramenta de BI.
 
-A camada processada gera datasets reutilizáveis:
+## Origem
 
-- `revenue_by_category.csv`
-- `product_summary.csv`
-- `daily_sales.csv`
-- `delivery_status.csv`
+O repositório começou como uma proposta acadêmica de análise de vendas com Pandas. Esta versão reconstrói o projeto como uma plataforma de Analytics Engineering executável, com modelagem dimensional, SQL modular, incrementalidade, histórico, testes e observabilidade.
 
-A lógica analítica fica separada do processamento principal, permitindo que os arquivos sejam consumidos futuramente por dashboards ou outras aplicações.
+## Licença
 
----
-
-## Visualizações
-
-### Receita por Categoria
-
-![Receita por Categoria](reports/charts/revenue_by_category.png)
-
-### Quantidade Vendida por Produto
-
-![Quantidade Vendida por Produto](reports/charts/units_by_product.png)
-
-### Tendência de Vendas Diárias
-
-![Vendas Diárias](reports/charts/daily_sales.png)
-
----
-
-## Decisões de Engenharia
-
-O projeto evita adicionar tecnologias apenas para aumentar a quantidade de palavras-chave no currículo.
-
-CSV e Pandas são suficientes para demonstrar o objetivo principal deste projeto:
-
-**construção de um pipeline de transformação e qualidade de dados.**
-
-As decisões técnicas estão documentadas em:
-
-[`docs/technical_decisions.md`](docs/technical_decisions.md)
-
-O dicionário de dados está disponível em:
-
-[`docs/data_dictionary.md`](docs/data_dictionary.md)
-
----
-
-## Competências Demonstradas
-
-- Python
-- Pandas
-- NumPy
-- fundamentos de ETL
-- limpeza de dados
-- transformação de dados
-- qualidade de dados
-- validação de schema
-- engenharia de atributos
-- logging
-- observabilidade de dados
-- testes automatizados com Pytest
-- GitHub Actions / CI
-- organização modular
-- documentação técnica
-- pipelines reproduzíveis
-
----
-
-## Próximas Evoluções
-
-Possíveis evoluções futuras:
-
-1. substituir a camada processada em CSV por PostgreSQL;
-2. criar modelos analíticos em SQL;
-3. adicionar Docker;
-4. adicionar orquestração com Airflow;
-5. utilizar uma biblioteca dedicada de qualidade de dados;
-6. publicar a camada processada em armazenamento de objetos na nuvem.
-
-Essas melhorias são apresentadas como evolução futura para não adicionar complexidade sem necessidade arquitetural.
-
----
-
-## Origem Acadêmica
-
-O projeto surgiu a partir do cenário de negócio e das regras de limpeza apresentadas no **Mini-Projeto 4 da Data Science Academy: Limpeza, Engenharia de Atributos e Análise Exploratória de Dados de Vendas com Pandas**.
-
-A versão de portfólio reorganiza o exercício em um pipeline reutilizável e adiciona práticas de Engenharia de Dados que não eram o foco principal do notebook original.
-
----
-
-## Autor
-
-**Victor Vanzella**
-
-Projeto de portfólio focado em Engenharia de Dados.
+Distribuído sob a licença MIT. Consulte [LICENSE](LICENSE).

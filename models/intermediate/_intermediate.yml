@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: int_order_items_enriched
+    description: Itens enriquecidos com produto, custo e métricas financeiras recalculadas.
+    columns:
+      - name: order_item_id
+        data_tests: [not_null, unique]
+      - name: net_sales_amount
+        data_tests: [not_null]
+
+  - name: int_orders_enriched
+    description: Uma linha por pedido com cliente e valores agregados dos itens.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]

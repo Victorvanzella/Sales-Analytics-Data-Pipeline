@@ -1,0 +1,13 @@
+services:
+  pipeline:
+    build: .
+    environment:
+      SALES_CUSTOMER_COUNT: ${SALES_CUSTOMER_COUNT:-5000}
+      SALES_PRODUCT_COUNT: ${SALES_PRODUCT_COUNT:-100}
+      SALES_ORDER_COUNT: ${SALES_ORDER_COUNT:-50000}
+      SALES_SEED: ${SALES_SEED:-42}
+      DBT_THREADS: ${DBT_THREADS:-1}
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./logs:/app/logs

@@ -1,0 +1,8 @@
+sales_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('WAREHOUSE_PATH', 'data/warehouse/sales_analytics.duckdb') }}"
+      schema: analytics
+      threads: "{{ env_var('DBT_THREADS', '1') | int }}"

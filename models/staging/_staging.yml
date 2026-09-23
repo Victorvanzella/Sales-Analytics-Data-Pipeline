@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: Clientes tipados e padronizados.
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: email
+        data_tests: [not_null]
+
+  - name: stg_products
+    description: Produtos tipados e padronizados.
+    columns:
+      - name: product_id
+        data_tests: [not_null, unique]
+
+  - name: stg_orders
+    description: Pedidos tipados e padronizados.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: customer_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+
+  - name: stg_order_items
+    description: Itens de pedido tipados e padronizados.
+    columns:
+      - name: order_item_id
+        data_tests: [not_null, unique]
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id

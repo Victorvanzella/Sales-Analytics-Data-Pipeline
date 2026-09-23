@@ -1,0 +1,10 @@
+version: 2
+
+seeds:
+  - name: country_targets
+    description: Metas de participação da receita reconhecida por país.
+    columns:
+      - name: country
+        data_tests: [not_null, unique]
+      - name: target_revenue_share_pct
+        data_tests: [not_null]
